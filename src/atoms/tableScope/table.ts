@@ -171,6 +171,12 @@ export const tableRowsDbAtom = atom<TableRow[]>([]);
 export const tableRowsAtom = atom<TableRow[]>((get) => {
   const rowsDb = get(tableRowsDbAtom);
   const rowsLocal = get(tableRowsLocalAtom);
+  const tableFilters = get(tableFiltersAtom);
+  const tableSorts = get(tableSortsAtom);
+
+  if (tableFilters.length > 0 || tableSorts.length > 0) {
+    return rowsDb;
+  }
 
   // Optimization: create Map of rowsDb by path to index for faster lookup
   const rowsDbMap = new Map<string, number>();

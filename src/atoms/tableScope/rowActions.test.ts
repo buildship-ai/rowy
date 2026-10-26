@@ -8,6 +8,8 @@ import { currentUserAtom } from "@src/atoms/projectScope";
 import {
   tableScope,
   tableSettingsAtom,
+  tableFiltersAtom,
+  tableSortsAtom,
   tableRowsDbAtom,
   tableRowsLocalAtom,
   _updateRowDbAtom,
@@ -54,6 +56,12 @@ const initRows = (
 
     const setRowsLocal = useSetAtom(tableRowsLocalAtom, tableScope);
     setRowsLocal({ type: "set", rows: [...initialRowsLocal] });
+
+    const setTableFilters = useSetAtom(tableFiltersAtom, tableScope);
+    setTableFilters([]);
+
+    const setTableSorts = useSetAtom(tableSortsAtom, tableScope);
+    setTableSorts([]);
 
     const setUpdateRowDb = useSetAtom(_updateRowDbAtom, tableScope);
     setUpdateRowDb(() => async (path: string, update: Partial<TableRow>) => {
@@ -604,5 +612,51 @@ describe("deleteRow", () => {
       result: { current: tableRows },
     } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
     expect(tableRows).toHaveLength(0);
+  });
+});
+
+describe("tableRowsAtom", () => {
+  test("includes out of order rows when no filters or sorts are applied", () => {
+    initRows(generatedRows, generatedRowsLocal);
+
+    const {
+      result: { current: tableRows },
+    } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
+    expect(tableRows).toHaveLength(GENERATED_ROWS_LENGTH * 2);
+    expect(find(tableRows, ["_rowy_ref.id", "rowLocal0"])).toBeDefined();
+  });
+
+  test("excludes out of order rows when filters are applied", () => {
+    initRows(generatedRows, generatedRowsLocal);
+    const {
+      result: { current: setTableFilters },
+    } = renderHook(() => useSetAtom(tableFiltersAtom, tableScope));
+
+    act(() =>
+      setTableFilters([
+        { id: "filter1", key: "index", operator: "==", value: 0 },
+      ])
+    );
+
+    const {
+      result: { current: tableRows },
+    } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
+    expect(tableRows).toHaveLength(GENERATED_ROWS_LENGTH);
+    expect(find(tableRows, ["_rowy_ref.id", "rowLocal0"])).toBeUndefined();
+  });
+
+  test("excludes out of order rows when sorts are applied", () => {
+    initRows(generatedRows, generatedRowsLocal);
+    const {
+      result: { current: setTableSorts },
+    } = renderHook(() => useSetAtom(tableSortsAtom, tableScope));
+
+    act(() => setTableSorts([{ key: "index", direction: "asc" }]));
+
+    const {
+      result: { current: tableRows },
+    } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
+    expect(tableRows).toHaveLength(GENERATED_ROWS_LENGTH);
+    expect(find(tableRows, ["_rowy_ref.id", "rowLocal0"])).toBeUndefined();
   });
 });
