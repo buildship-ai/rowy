@@ -170,6 +170,11 @@ export const tableRowsDbAtom = atom<TableRow[]>([]);
 /** Combine tableRowsLocal and tableRowsDb */
 export const tableRowsAtom = atom<TableRow[]>((get) => {
   const rowsDb = get(tableRowsDbAtom);
+  const tableFilters = get(tableFiltersAtom);
+  const tableSorts = get(tableSortsAtom);
+  if (tableFilters.length > 0 || tableSorts.length > 0) {
+    return rowsDb;
+  }
   const rowsLocal = get(tableRowsLocalAtom);
 
   // Optimization: create Map of rowsDb by path to index for faster lookup
