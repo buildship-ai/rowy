@@ -1,5 +1,5 @@
-import { memo } from "react";
-import { useAtom } from "jotai";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useAtom, useSetAtom } from "jotai";
 import {
   Column,
   Row,
@@ -17,6 +17,8 @@ import {
   tableSchemaAtom,
   selectedCellAtom,
   tableNextPageAtom,
+  fillCellRangeAtom,
+  NON_FILLABLE_FIELD_TYPES,
 } from "@src/atoms/tableScope";
 
 import { getFieldProp } from "@src/components/fields";
@@ -65,6 +67,80 @@ export const TableBody = memo(function TableBody({
   const [tableSchema] = useAtom(tableSchemaAtom, tableScope);
   const [selectedCell] = useAtom(selectedCellAtom, tableScope);
   const [tableNextPage] = useAtom(tableNextPageAtom, tableScope);
+  const fillCellRange = useSetAtom(fillCellRangeAtom, tableScope);
+
+  const [dragFillState, setDragFillState] = useState<{
+    columnId: string;
+    startRowIndex: number;
+    endRowIndex: number;
+  } | null>(null);
+  const dragFillStateRef = useRef(dragFillState);
+  dragFillStateRef.current = dragFillState;
+
+  const handleDragFillStart = useCallback(
+    (rowIndex: number, columnId: string) => {
+      setDragFillState({
+        columnId,
+        startRowIndex: rowIndex,
+        endRowIndex: rowIndex,
+      });
+    },
+    []
+  );
+
+  const handleDragFillHover = useCallback(
+    (rowIndex: number, _columnId: string) => {
+      setDragFillState((prev) =>
+        prev ? { ...prev, endRowIndex: rowIndex } : null
+      );
+    },
+    []
+  );
+
+  const isDraggingFill = Boolean(dragFillState);
+  useEffect(() => {
+    if (!isDraggingFill) return;
+
+    const handleMouseUp = () => {
+      const current = dragFillStateRef.current;
+      setDragFillState(null);
+      if (!current || current.startRowIndex === current.endRowIndex) return;
+
+      const sourceRow = rows[current.startRowIndex];
+      if (!sourceRow) return;
+
+      const minRow = Math.min(current.startRowIndex, current.endRowIndex);
+      const maxRow = Math.max(current.startRowIndex, current.endRowIndex);
+      const targetRows = rows
+        .slice(minRow, maxRow + 1)
+        .filter((_, idx) => minRow + idx !== current.startRowIndex);
+
+      if (targetRows.length === 0) return;
+
+      fillCellRange({
+        sourceRowPath: sourceRow.original._rowy_ref.path,
+        targetRowPaths: targetRows.map((r) => r.original._rowy_ref.path),
+        columnKeys: [current.columnId],
+        sourceArrayIndex: sourceRow.original._rowy_ref.arrayTableData?.index,
+        targetArrayIndices: targetRows.map(
+          (r) => r.original._rowy_ref.arrayTableData?.index
+        ),
+      });
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDragFillState(null);
+      }
+    };
+
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isDraggingFill, rows, fillCellRange]);
 
   const {
     virtualRows,
@@ -113,12 +189,33 @@ export const TableBody = memo(function TableBody({
                 selectedCell?.arrayIndex ===
                   row.original._rowy_ref.arrayTableData?.index;
 
-              const fieldTypeGroup = getFieldProp(
-                "group",
-                cell.column.columnDef.meta?.type
-              );
+              const fieldType = cell.column.columnDef.meta?.type;
+              const fieldTypeGroup = getFieldProp("group", fieldType);
               const isReadOnlyCell =
                 fieldTypeGroup === "Auditing" || fieldTypeGroup === "Metadata";
+
+              const canDragFill =
+                canEditCells &&
+                !isReadOnlyCell &&
+                cell.column.columnDef.meta?.editable !== false &&
+                cell.column.id !== "_rowy_column_actions" &&
+                (!fieldType || !NON_FILLABLE_FIELD_TYPES.has(fieldType));
+
+              const isDragFillTarget = Boolean(
+                dragFillState &&
+                  dragFillState.columnId === cell.column.id &&
+                  row.index !== dragFillState.startRowIndex &&
+                  row.index >=
+                    Math.min(
+                      dragFillState.startRowIndex,
+                      dragFillState.endRowIndex
+                    ) &&
+                  row.index <=
+                    Math.max(
+                      dragFillState.startRowIndex,
+                      dragFillState.endRowIndex
+                    )
+              );
 
               if (cell.id.includes("_rowy_select")) {
                 return (
@@ -143,6 +240,10 @@ export const TableBody = memo(function TableBody({
                   rowHeight={rowHeight}
                   left={virtualCell.start}
                   isPinned={cell.column.getIsPinned() === "left"}
+                  isDragFillTarget={isDragFillTarget}
+                  canDragFill={canDragFill}
+                  onDragFillStart={handleDragFillStart}
+                  onDragFillHover={handleDragFillHover}
                 />
               );
             })}

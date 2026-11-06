@@ -22,10 +22,30 @@ export const StyledTable = styled("div")(({ theme }) => ({
       outline: `2px solid ${theme.palette.primary.main}`,
       outlineOffset: "-2px",
     },
+    "&[data-drag-fill-target='true']": {
+      outline: `1px dashed ${theme.palette.primary.main}`,
+      outlineOffset: "-1px",
+      backgroundColor: colord(theme.palette.background.paper)
+        .mix(theme.palette.primary.main, theme.palette.action.selectedOpacity)
+        .alpha(1)
+        .toHslString(),
+    },
     "&:focus": {
       outlineWidth: "3px",
       outlineOffset: "-3px",
     },
+  },
+
+  "& .cell-fill-handle": {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 8,
+    height: 8,
+    backgroundColor: theme.palette.primary.main,
+    border: `1px solid ${theme.palette.background.paper}`,
+    cursor: "crosshair",
+    zIndex: 3,
   },
 
   "& [data-frozen='left']": {

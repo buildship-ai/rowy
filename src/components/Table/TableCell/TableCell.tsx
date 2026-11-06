@@ -55,6 +55,14 @@ export interface ITableCellProps {
    */
   left: number;
   isPinned: boolean;
+  /** Whether this cell is part of an active drag-to-fill target range */
+  isDragFillTarget?: boolean;
+  /** Whether this cell can be drag-filled to adjacent rows */
+  canDragFill?: boolean;
+  /** Triggered when the user begins dragging the cell fill handle */
+  onDragFillStart?: (rowIndex: number, columnId: string) => void;
+  /** Triggered when the user hovers over a cell while dragging the fill handle */
+  onDragFillHover?: (rowIndex: number, columnId: string) => void;
 }
 
 /**
@@ -82,6 +90,10 @@ export const TableCell = memo(function TableCell({
   width,
   left,
   isPinned,
+  isDragFillTarget,
+  canDragFill,
+  onDragFillStart,
+  onDragFillHover,
 }: ITableCellProps) {
   const setSelectedCell = useSetAtom(selectedCellAtom, tableScope);
   const setContextMenuTarget = useSetAtom(contextMenuTargetAtom, tableScope);
@@ -139,6 +151,7 @@ export const TableCell = memo(function TableCell({
       data-col-id={cell.column.id}
       data-frozen={cell.column.getIsPinned() || undefined}
       data-frozen-last={isLastFrozen || undefined}
+      data-drag-fill-target={isDragFillTarget || undefined}
       role="gridcell"
       tabIndex={isSelectedCell && !focusInsideCell ? 0 : -1}
       aria-colindex={index + 1}
@@ -164,6 +177,9 @@ export const TableCell = memo(function TableCell({
           cell.column.id === "_rowy_column_actions" ? 0 : undefined,
         borderRightWidth:
           cell.column.id === "_rowy_column_actions" ? 0 : undefined,
+      }}
+      onMouseEnter={() => {
+        onDragFillHover?.(row.index, cell.column.id);
       }}
       onClick={(e) => {
         setSelectedCell({
@@ -206,6 +222,17 @@ export const TableCell = memo(function TableCell({
       <ErrorBoundary fallbackRender={InlineErrorFallback}>
         {flexRender(cell.column.columnDef.cell, tableCellComponentProps)}
       </ErrorBoundary>
+      {isSelectedCell && !focusInsideCell && canDragFill && (
+        <div
+          className="cell-fill-handle"
+          data-testid="cell-fill-handle"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onDragFillStart?.(row.index, cell.column.id);
+          }}
+        />
+      )}
     </StyledCell>
   );
 });
