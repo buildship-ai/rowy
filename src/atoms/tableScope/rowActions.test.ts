@@ -8,13 +8,16 @@ import { currentUserAtom } from "@src/atoms/projectScope";
 import {
   tableScope,
   tableSettingsAtom,
+  tableSchemaAtom,
   tableRowsDbAtom,
   tableRowsLocalAtom,
   _updateRowDbAtom,
   _deleteRowDbAtom,
   addRowAtom,
   deleteRowAtom,
+  fillCellRangeAtom,
 } from "@src/atoms/tableScope";
+import { FieldType } from "@src/constants/fields";
 import { TableRow } from "@src/types/table";
 import { tableRowsAtom } from "./table";
 import { updateRowData, decrementId } from "@src/utils/table";
@@ -604,5 +607,175 @@ describe("deleteRow", () => {
       result: { current: tableRows },
     } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
     expect(tableRows).toHaveLength(0);
+  });
+});
+
+describe("fillCellRange", () => {
+  test("fills text, number, boolean, and array values from source row to target rows", async () => {
+    const initialRows: TableRow[] = [
+      {
+        _rowy_ref: { id: "row0", path: TEST_COLLECTION + "/row0" },
+        title: "Template Text",
+        count: 42,
+        active: true,
+        tags: ["alpha", "beta"],
+      },
+      {
+        _rowy_ref: { id: "row1", path: TEST_COLLECTION + "/row1" },
+        title: "Old 1",
+        count: 1,
+        active: false,
+        tags: [],
+      },
+      {
+        _rowy_ref: { id: "row2", path: TEST_COLLECTION + "/row2" },
+        title: "Old 2",
+        count: 2,
+        active: false,
+        tags: ["gamma"],
+      },
+    ];
+    initRows(initialRows);
+
+    const {
+      result: { current: fillCellRange },
+    } = renderHook(() => useSetAtom(fillCellRangeAtom, tableScope));
+
+    await act(() =>
+      fillCellRange({
+        sourceRowPath: TEST_COLLECTION + "/row0",
+        targetRowPaths: [
+          TEST_COLLECTION + "/row1",
+          TEST_COLLECTION + "/row2",
+        ],
+        columnKeys: ["title", "count", "active", "tags"],
+      })
+    );
+
+    const {
+      result: { current: tableRows },
+    } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
+
+    const row1 = find(tableRows, ["_rowy_ref.id", "row1"]);
+    const row2 = find(tableRows, ["_rowy_ref.id", "row2"]);
+
+    expect(row1?.title).toBe("Template Text");
+    expect(row1?.count).toBe(42);
+    expect(row1?.active).toBe(true);
+    expect(row1?.tags).toEqual(["alpha", "beta"]);
+
+    expect(row2?.title).toBe("Template Text");
+    expect(row2?.count).toBe(42);
+    expect(row2?.active).toBe(true);
+    expect(row2?.tags).toEqual(["alpha", "beta"]);
+  });
+
+  test("skips non-editable and read-only columns when filling", async () => {
+    const initialRows: TableRow[] = [
+      {
+        _rowy_ref: { id: "row0", path: TEST_COLLECTION + "/row0" },
+        editableCol: "Copied Value",
+        lockedCol: "Locked Source",
+        createdByCol: "User A",
+      },
+      {
+        _rowy_ref: { id: "row1", path: TEST_COLLECTION + "/row1" },
+        editableCol: "Original",
+        lockedCol: "Locked Target",
+        createdByCol: "User B",
+      },
+    ];
+    initRows(initialRows);
+
+    const {
+      result: { current: setTableSchema },
+    } = renderHook(() => useSetAtom(tableSchemaAtom, tableScope));
+
+    act(() => {
+      setTableSchema({
+        columns: {
+          editableCol: {
+            key: "editableCol",
+            fieldName: "editableCol",
+            name: "Editable",
+            type: FieldType.shortText,
+            index: 0,
+            editable: true,
+          },
+          lockedCol: {
+            key: "lockedCol",
+            fieldName: "lockedCol",
+            name: "Locked",
+            type: FieldType.shortText,
+            index: 1,
+            editable: false,
+          },
+          createdByCol: {
+            key: "createdByCol",
+            fieldName: "createdByCol",
+            name: "Created By",
+            type: FieldType.createdBy,
+            index: 2,
+          },
+        },
+      });
+    });
+
+    const {
+      result: { current: fillCellRange },
+    } = renderHook(() => useSetAtom(fillCellRangeAtom, tableScope));
+
+    await act(() =>
+      fillCellRange({
+        sourceRowPath: TEST_COLLECTION + "/row0",
+        targetRowPaths: [TEST_COLLECTION + "/row1"],
+        columnKeys: ["editableCol", "lockedCol", "createdByCol"],
+      })
+    );
+
+    const {
+      result: { current: tableRows },
+    } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
+    const row1 = find(tableRows, ["_rowy_ref.id", "row1"]);
+
+    expect(row1?.editableCol).toBe("Copied Value");
+    expect(row1?.lockedCol).toBe("Locked Target");
+    expect(row1?.createdByCol).toBe("User B");
+  });
+
+  test("fills local rows and preserves audit metadata when enabled", async () => {
+    const initialRowsDb: TableRow[] = [
+      {
+        _rowy_ref: { id: "row0", path: TEST_COLLECTION + "/row0" },
+        statusText: "Done",
+      },
+    ];
+    const initialRowsLocal: TableRow[] = [
+      {
+        _rowy_ref: { id: "rowLocal0", path: TEST_COLLECTION + "/rowLocal0" },
+        statusText: "Todo",
+      },
+    ];
+    initRows(initialRowsDb, initialRowsLocal, true);
+
+    const {
+      result: { current: fillCellRange },
+    } = renderHook(() => useSetAtom(fillCellRangeAtom, tableScope));
+
+    await act(() =>
+      fillCellRange({
+        sourceRowPath: TEST_COLLECTION + "/row0",
+        targetRowPaths: [TEST_COLLECTION + "/rowLocal0"],
+        columnKeys: ["statusText"],
+      })
+    );
+
+    const {
+      result: { current: tableRows },
+    } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
+    const localRow = find(tableRows, ["_rowy_ref.id", "rowLocal0"]);
+
+    expect(localRow?.statusText).toBe("Done");
+    expect(localRow?._updatedBy?.uid).toBe("TEST_USER");
   });
 });

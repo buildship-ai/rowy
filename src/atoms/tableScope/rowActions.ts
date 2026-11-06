@@ -35,6 +35,7 @@ import {
   omitRowyFields,
 } from "@src/utils/table";
 import { arrayRemove, arrayUnion } from "firebase/firestore";
+import { FieldType } from "@src/constants/fields";
 
 export interface IAddRowOptions {
   /** The row or array of rows to add */
@@ -500,5 +501,120 @@ export const updateFieldAtom = atom(
 
     if (auditChange)
       auditChange("UPDATE_CELL", path, { updatedField: fieldName });
+  }
+);
+
+export const NON_FILLABLE_FIELD_TYPES = new Set<FieldType>([
+  FieldType.id,
+  FieldType.createdBy,
+  FieldType.updatedBy,
+  FieldType.createdAt,
+  FieldType.updatedAt,
+  FieldType.action,
+  FieldType.derivative,
+  FieldType.aggregate,
+  FieldType.status,
+  FieldType.formula,
+  FieldType.subTable,
+  FieldType.last,
+]);
+
+export interface IFillCellRangeOptions {
+  /** The path to the source row to copy field values from */
+  sourceRowPath: string;
+  /** The paths of target rows to fill values into */
+  targetRowPaths: string[];
+  /** The column field names / keys to fill */
+  columnKeys: string[];
+  /** If true, ignores checking required fields have values */
+  ignoreRequiredFields?: boolean;
+  /** Optional source row index when filling in an ArraySubTable */
+  sourceArrayIndex?: number;
+  /** Optional target row indices corresponding to targetRowPaths in an ArraySubTable */
+  targetArrayIndices?: (number | undefined)[];
+}
+
+/**
+ * Copies cell values from a source row into one or more target rows across
+ * specified columns (e.g., drag-and-drop cell fill handle).
+ * Skips non-editable or read-only/computed columns.
+ */
+export const fillCellRangeAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    {
+      sourceRowPath,
+      targetRowPaths,
+      columnKeys,
+      ignoreRequiredFields,
+      sourceArrayIndex,
+      targetArrayIndices,
+    }: IFillCellRangeOptions
+  ) => {
+    if (targetRowPaths.length === 0 || columnKeys.length === 0) return;
+
+    const tableColumnsOrdered = get(tableColumnsOrderedAtom);
+    const tableRows = get(tableRowsAtom);
+
+    const sourceRow = find(
+      tableRows,
+      sourceArrayIndex !== undefined
+        ? ["_rowy_ref.arrayTableData.index", sourceArrayIndex]
+        : ["_rowy_ref.path", sourceRowPath]
+    );
+    if (!sourceRow) throw new Error("Could not find source row");
+
+    const editableColumnKeys = columnKeys.filter((fieldName) => {
+      const column = find(
+        tableColumnsOrdered,
+        (col) => col.fieldName === fieldName || col.key === fieldName
+      );
+      if (!column) return true;
+      if (column.editable === false) return false;
+      if (NON_FILLABLE_FIELD_TYPES.has(column.type)) return false;
+      return true;
+    });
+
+    if (editableColumnKeys.length === 0) return;
+
+    for (let i = 0; i < targetRowPaths.length; i++) {
+      const targetPath = targetRowPaths[i];
+      const targetArrayIndex = targetArrayIndices?.[i];
+
+      if (
+        targetPath === sourceRowPath &&
+        targetArrayIndex === sourceArrayIndex
+      ) {
+        continue;
+      }
+
+      const targetRow = find(
+        tableRows,
+        targetArrayIndex !== undefined
+          ? ["_rowy_ref.arrayTableData.index", targetArrayIndex]
+          : ["_rowy_ref.path", targetPath]
+      );
+      if (!targetRow) continue;
+
+      for (const fieldName of editableColumnKeys) {
+        const sourceValue = _get(sourceRow, fieldName);
+        const targetValue = _get(targetRow, fieldName);
+        if (isEqual(targetValue, sourceValue)) continue;
+
+        await set(updateFieldAtom, {
+          path: targetPath,
+          fieldName,
+          value: cloneDeep(sourceValue),
+          deleteField: sourceValue === undefined,
+          ignoreRequiredFields,
+          arrayTableData:
+            targetArrayIndex !== undefined
+              ? { index: targetArrayIndex }
+              : undefined,
+        });
+      }
+    }
   }
 );
