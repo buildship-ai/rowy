@@ -171,22 +171,28 @@ export const tableRowsDbAtom = atom<TableRow[]>([]);
 export const tableRowsAtom = atom<TableRow[]>((get) => {
   const rowsDb = get(tableRowsDbAtom);
   const rowsLocal = get(tableRowsLocalAtom);
+  const filters = get(tableFiltersAtom);
+  const sorts = get(tableSortsAtom);
+  const hasFilterOrSort =
+    (filters && filters.length > 0) || (sorts && sorts.length > 0);
 
   // Optimization: create Map of rowsDb by path to index for faster lookup
   const rowsDbMap = new Map<string, number>();
   rowsDb.forEach((row, i) => rowsDbMap.set(row._rowy_ref.path, i));
 
   // Loop through rowsLocal, which is usually the smaller of the two arrays
-  const rowsLocalToMerge = rowsLocal.map((row, i) => {
+  const rowsLocalToMerge: TableRow[] = [];
+  rowsLocal.forEach((row) => {
     // If row is in rowsDb, merge the two
     // and remove from rowsDb to prevent duplication
     if (rowsDbMap.has(row._rowy_ref.path)) {
       const index = rowsDbMap.get(row._rowy_ref.path)!;
       const merged = updateRowData({ ...rowsDb[index] }, row);
       rowsDbMap.delete(row._rowy_ref.path);
-      return merged;
+      rowsLocalToMerge.push(merged);
+    } else if (!hasFilterOrSort) {
+      rowsLocalToMerge.push(row);
     }
-    return row;
   });
 
   // Merge the two arrays
