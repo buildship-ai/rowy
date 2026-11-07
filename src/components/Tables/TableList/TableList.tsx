@@ -14,6 +14,8 @@ export interface ITableListProps {
   getActions?: (table: TableSettings) => React.ReactNode;
 }
 
+export const MAX_LIST_SECTION_TRANSITION_TIMEOUT_MS = 300;
+
 export default function TableList({
   sections,
   getLink,
@@ -23,6 +25,11 @@ export default function TableList({
     <TransitionGroup>
       {Object.entries(sections).map(
         ([sectionName, sectionTables], sectionIndex) => {
+          const sectionEnterTimeout = Math.min(
+            (sectionIndex + 1) * 50,
+            MAX_LIST_SECTION_TRANSITION_TIMEOUT_MS
+          );
+
           const tableItems = sectionTables
             .map((table) => {
               if (!table) return null;
@@ -47,14 +54,14 @@ export default function TableList({
                 <SlideTransition
                   key={"list-section-" + sectionName}
                   in
-                  timeout={(sectionIndex + 1) * 100}
+                  timeout={{ enter: sectionEnterTimeout }}
                 >
                   <SectionHeading sx={{ pl: 2, pr: 1 }}>
                     {sectionName}
                   </SectionHeading>
                 </SlideTransition>
 
-                <SlideTransition in timeout={(sectionIndex + 1) * 100}>
+                <SlideTransition in timeout={{ enter: sectionEnterTimeout }}>
                   <Paper>
                     <List disablePadding>
                       <TransitionGroup>{tableItems}</TransitionGroup>

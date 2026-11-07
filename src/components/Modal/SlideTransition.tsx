@@ -7,7 +7,7 @@ import { TransitionProps as MuiTransitionProps } from "@mui/material/transitions
 export const SlideTransition: React.ForwardRefExoticComponent<
   Pick<TransitionProps, React.ReactText> & React.RefAttributes<any>
 > = forwardRef(
-  ({ children, ...props }: TransitionProps, ref: React.Ref<any>) => {
+  ({ children, timeout, ...props }: TransitionProps, ref: React.Ref<any>) => {
     const theme = useTheme();
 
     if (!children) return null;
@@ -50,10 +50,18 @@ export const SlideTransition: React.ForwardRefExoticComponent<
       unmounted: {},
     };
 
+    const resolvedTimeout =
+      typeof timeout === "number"
+        ? { enter: timeout, exit: theme.transitions.duration.leavingScreen }
+        : {
+            enter: timeout?.enter ?? 0,
+            exit: timeout?.exit ?? theme.transitions.duration.leavingScreen,
+          };
+
     return (
       <Transition
         appear
-        timeout={{ enter: 0, exit: theme.transitions.duration.leavingScreen }}
+        timeout={resolvedTimeout}
         {...props}
       >
         {(state) =>
