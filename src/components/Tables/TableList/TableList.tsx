@@ -5,6 +5,7 @@ import { Box, Paper, Collapse, List } from "@mui/material";
 import SectionHeading from "@src/components/SectionHeading";
 import TableListItem from "./TableListItem";
 import SlideTransition from "@src/components/Modal/SlideTransition";
+import { getBoundedTableTimeout } from "@src/components/Tables/TableGrid/TableGrid";
 
 import { TableSettings } from "@src/types/table";
 
@@ -41,20 +42,22 @@ export default function TableList({
 
           if (tableItems.length === 0) return null;
 
+          const sectionTimeout = getBoundedTableTimeout(sectionIndex);
+
           return (
             <Collapse key={sectionName}>
               <Box component="section" sx={{ mt: 4 }}>
                 <SlideTransition
                   key={"list-section-" + sectionName}
                   in
-                  timeout={(sectionIndex + 1) * 100}
+                  timeout={sectionTimeout}
                 >
                   <SectionHeading sx={{ pl: 2, pr: 1 }}>
                     {sectionName}
                   </SectionHeading>
                 </SlideTransition>
 
-                <SlideTransition in timeout={(sectionIndex + 1) * 100}>
+                <SlideTransition in timeout={sectionTimeout}>
                   <Paper>
                     <List disablePadding>
                       <TransitionGroup>{tableItems}</TransitionGroup>
