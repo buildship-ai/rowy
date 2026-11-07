@@ -3,20 +3,24 @@ import { useAtom } from "jotai";
 import {
   Column,
   Row,
+  Cell,
   ColumnSizingState,
   flexRender,
 } from "@tanstack/react-table";
+import type { VirtualItem } from "@tanstack/react-virtual";
 
 import StyledRow from "./Styled/StyledRow";
 import OutOfOrderIndicator from "./OutOfOrderIndicator";
 import TableCell from "./TableCell";
 import { RowsSkeleton } from "./TableSkeleton";
+import useDragFill from "./useDragFill";
 
 import {
   tableScope,
   tableSchemaAtom,
   selectedCellAtom,
   tableNextPageAtom,
+  SelectedCell,
 } from "@src/atoms/tableScope";
 
 import { getFieldProp } from "@src/components/fields";
@@ -26,34 +30,71 @@ import { DEFAULT_ROW_HEIGHT, OUT_OF_ORDER_MARGIN } from "./Table";
 import StyledCell from "./Styled/StyledCell";
 
 export interface ITableBodyProps {
-  /**
-   * Re-render this component when the container element changes, to fix a bug
-   * where virtualization doesn’t detect scrolls if `containerRef.current` was
-   * initially null
-   */
   containerEl: HTMLDivElement | null;
-  /** Used in `useVirtualization` */
   containerRef: React.RefObject<HTMLDivElement>;
-  /** Used in `useVirtualization` */
   leafColumns: Column<TableRow, unknown>[];
-  /** Current table rows with context from TanStack Table state */
   rows: Row<TableRow>[];
-  /** Determines if EditorCell can be displayed */
   canEditCells: boolean;
-  /** If specified, renders a shadow in the last frozen column */
   lastFrozen?: string;
-  /**
-   * Must pass this prop so that it re-renders when local column sizing changes */
   columnSizing: ColumnSizingState;
 }
 
-/**
- * Renders table body & data rows.
- * Handles virtualization of rows & columns via `useVirtualization`.
- *
- * - Renders row out of order indicator
- * - Renders next page loading UI (`RowsSkeleton`)
- */
+const isCellSelected = (
+  selectedCell: SelectedCell | null,
+  row: Row<TableRow>,
+  columnId: string
+): boolean =>
+  selectedCell?.path === row.original._rowy_ref.path &&
+  selectedCell?.columnKey === columnId &&
+  selectedCell?.arrayIndex === row.original._rowy_ref.arrayTableData?.index;
+
+const isAuditOrMetadataCell = (cell: Cell<TableRow, unknown>): boolean => {
+  const fieldTypeGroup = getFieldProp("group", cell.column.columnDef.meta?.type);
+  return fieldTypeGroup === "Auditing" || fieldTypeGroup === "Metadata";
+};
+
+interface VirtualCellRenderProps {
+  row: Row<TableRow>;
+  virtualCell: VirtualItem;
+  selectedCell: SelectedCell | null;
+  canEditCells: boolean;
+  lastFrozen?: string;
+  rowHeight: number;
+}
+
+const renderVirtualCell = (ctx: VirtualCellRenderProps) => {
+  const cellIndex = ctx.virtualCell.index;
+  const cell = ctx.row.getVisibleCells()[cellIndex];
+
+  if (cell.id.includes("_rowy_select")) {
+    return (
+      <StyledCell key={cell.id} role="gridcell" data-frozen="left">
+        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+      </StyledCell>
+    );
+  }
+
+  const selected = isCellSelected(ctx.selectedCell, ctx.row, cell.column.id);
+
+  return (
+    <TableCell
+      key={cell.id}
+      row={ctx.row}
+      cell={cell}
+      index={cellIndex}
+      isSelectedCell={selected}
+      focusInsideCell={Boolean(selected && ctx.selectedCell?.focusInside)}
+      isReadOnlyCell={isAuditOrMetadataCell(cell)}
+      canEditCells={ctx.canEditCells}
+      isLastFrozen={ctx.lastFrozen === cell.column.id}
+      width={cell.column.getSize()}
+      rowHeight={ctx.rowHeight}
+      left={ctx.virtualCell.start}
+      isPinned={cell.column.getIsPinned() === "left"}
+    />
+  );
+};
+
 export const TableBody = memo(function TableBody({
   containerRef,
   leafColumns,
@@ -65,6 +106,8 @@ export const TableBody = memo(function TableBody({
   const [tableSchema] = useAtom(tableSchemaAtom, tableScope);
   const [selectedCell] = useAtom(selectedCellAtom, tableScope);
   const [tableNextPage] = useAtom(tableNextPageAtom, tableScope);
+
+  useDragFill(rows);
 
   const {
     virtualRows,
@@ -102,50 +145,16 @@ export const TableBody = memo(function TableBody({
           >
             {outOfOrder && <OutOfOrderIndicator />}
 
-            {virtualCols.map((virtualCell) => {
-              const cellIndex = virtualCell.index;
-              const cell = row.getVisibleCells()[cellIndex];
-
-              const isSelectedCell =
-                selectedCell?.path === row.original._rowy_ref.path &&
-                selectedCell?.columnKey === cell.column.id &&
-                // if the table is an array sub table, we need to check the array index as well
-                selectedCell?.arrayIndex ===
-                  row.original._rowy_ref.arrayTableData?.index;
-
-              const fieldTypeGroup = getFieldProp(
-                "group",
-                cell.column.columnDef.meta?.type
-              );
-              const isReadOnlyCell =
-                fieldTypeGroup === "Auditing" || fieldTypeGroup === "Metadata";
-
-              if (cell.id.includes("_rowy_select")) {
-                return (
-                  <StyledCell key={cell.id} role="gridcell" data-frozen="left">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </StyledCell>
-                );
-              }
-
-              return (
-                <TableCell
-                  key={cell.id}
-                  row={row}
-                  cell={cell}
-                  index={cellIndex}
-                  isSelectedCell={isSelectedCell}
-                  focusInsideCell={isSelectedCell && selectedCell?.focusInside}
-                  isReadOnlyCell={isReadOnlyCell}
-                  canEditCells={canEditCells}
-                  isLastFrozen={lastFrozen === cell.column.id}
-                  width={cell.column.getSize()}
-                  rowHeight={rowHeight}
-                  left={virtualCell.start}
-                  isPinned={cell.column.getIsPinned() === "left"}
-                />
-              );
-            })}
+            {virtualCols.map((virtualCell) =>
+              renderVirtualCell({
+                row,
+                virtualCell,
+                selectedCell,
+                canEditCells,
+                lastFrozen,
+                rowHeight,
+              })
+            )}
           </StyledRow>
         );
       })}

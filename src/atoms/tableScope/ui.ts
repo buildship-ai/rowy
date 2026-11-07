@@ -7,17 +7,6 @@ import { SEVERITY_LEVELS } from "@src/components/TableModals/CloudLogsModal/Clou
 
 /**
  * Open table column menu. Set to `null` to close.
- *
- * @example Basic usage:
- * ```
- * const openColumnMenu = useSetAtom(columnMenuAtom, projectScope);
- * openColumnMenu({ column, anchorEl: ... });
- * ```
- *
- * @example Close:
- * ```
- * openColumnMenu(null)
- * ```
  */
 export const columnMenuAtom = atom<{
   column: ColumnConfig;
@@ -27,18 +16,6 @@ export const columnMenuAtom = atom<{
 /**
  * Opens a table column modal. Set to `null` to close.
  * Modals: new column, name change, type change, column settings.
- *
- * @example Basic usage:
- * ```
- * const openColumnModal = useSetAtom(columnModalAtom, projectScope);
- * openColumnModal({ type: "...", column });
- * ```
- *
- * @example Close:
- * ```
- * import { RESET } from "jotai/utils";
- * openColumnModal(RESET)
- * ```
  */
 export const columnModalAtom = atomWithHash<{
   type: "new" | "name" | "type" | "config" | "setColumnWidth";
@@ -53,17 +30,6 @@ export type TableFiltersPopoverState = {
 /**
  * Store table filter popover state.
  * Calling the set function resets props.
- *
- * @example Basic usage:
- * ```
- * const openTableFiltersPopover = useSetAtom(tableFiltersPopoverAtom, projectScope);
- * openTableFiltersPopover({ query: ... });
- * ```
- *
- * @example Close:
- * ```
- * openTableFiltersPopover({ open: false })
- * ```
  */
 export const tableFiltersPopoverAtom = atom(
   { open: false } as TableFiltersPopoverState,
@@ -81,17 +47,6 @@ export const sideDrawerShowHiddenFieldsAtom = atomWithStorage(
 /**
  * Opens a table modal. Set to `null` to close.
  * Modals: cloud logs, extensions, webhooks, export, import, import CSV.
- *
- * @example Basic usage:
- * ```
- * const openTableModal = useSetAtom(tableModalAtom, projectScope);
- * openTableModal("...");
- * ```
- *
- * @example Close:
- * ```
- * openTableModal(null)
- * ```
  */
 export const tableModalAtom = atomWithHash<
   | "cloudLogs"
@@ -134,10 +89,22 @@ export type SelectedCell = {
   path: string | "_rowy_header";
   columnKey: string | "_rowy_row_actions";
   focusInside: boolean;
-  arrayIndex?: number; // for array sub table
+  arrayIndex?: number;
 };
 /** Store selected cell in table. Used in side drawer and context menu */
 export const selectedCellAtom = atom<SelectedCell | null>(null);
+
+/**
+ * Track active drag-fill gesture across rows in the same column (#533).
+ */
+export type DragFillState = {
+  columnKey: string;
+  startRowIndex: number;
+  endRowIndex: number;
+  sourceValue: any;
+  sourcePath: string;
+};
+export const dragFillStateAtom = atom<DragFillState | null>(null);
 
 /** Store context menu target atom for positioning. If not null, menu open. */
 export const contextMenuTargetAtom = atom<HTMLElement | null>(null);
