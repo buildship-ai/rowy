@@ -4,10 +4,25 @@ import { Transition } from "react-transition-group";
 import { TransitionProps } from "react-transition-group/Transition";
 import { TransitionProps as MuiTransitionProps } from "@mui/material/transitions";
 
+// Preserve fast exit duration when callers pass a numeric enter stagger timeout
+// so filtered-out items unmount immediately instead of waiting for enter delays.
+const resolveTransitionTimeout = (
+  timeout: TransitionProps["timeout"],
+  leavingScreenDuration: number
+): TransitionProps["timeout"] => {
+  if (typeof timeout === "number") {
+    return { enter: timeout, exit: leavingScreenDuration };
+  }
+  return timeout ?? { enter: 0, exit: leavingScreenDuration };
+};
+
 export const SlideTransition: React.ForwardRefExoticComponent<
   Pick<TransitionProps, React.ReactText> & React.RefAttributes<any>
 > = forwardRef(
-  ({ children, ...props }: TransitionProps, ref: React.Ref<any>) => {
+  (
+    { children, timeout, ...props }: TransitionProps,
+    ref: React.Ref<any>
+  ) => {
     const theme = useTheme();
 
     if (!children) return null;
@@ -53,7 +68,10 @@ export const SlideTransition: React.ForwardRefExoticComponent<
     return (
       <Transition
         appear
-        timeout={{ enter: 0, exit: theme.transitions.duration.leavingScreen }}
+        timeout={resolveTransitionTimeout(
+          timeout,
+          theme.transitions.duration.leavingScreen
+        )}
         {...props}
       >
         {(state) =>
