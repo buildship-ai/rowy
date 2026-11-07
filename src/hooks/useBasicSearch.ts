@@ -5,7 +5,7 @@ import { matchSorter, rankings } from "match-sorter";
 export function useBasicSearch<T>(
   list: T[],
   keys: string[],
-  debounce: number = 400
+  debounce: number = 200
 ) {
   const [query, setQuery] = useState("");
   const handleQuery = useDebouncedCallback(setQuery, debounce);
