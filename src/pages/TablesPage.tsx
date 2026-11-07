@@ -1,5 +1,6 @@
+import { useMemo } from "react";
 import { useAtom, useSetAtom } from "jotai";
-import { find, groupBy, sortBy } from "lodash-es";
+import { groupBy, sortBy } from "lodash-es";
 import { Link } from "react-router-dom";
 
 import {
@@ -64,13 +65,23 @@ export default function TablesPage() {
     SEARCH_KEYS
   );
 
-  const favorites = Array.isArray(userSettings.favoriteTables)
-    ? userSettings.favoriteTables
-    : [];
-  const sections: Record<string, TableSettings[]> = {
-    Favorites: favorites.map((id) => find(results, { id })) as TableSettings[],
-    ...groupBy(sortBy(results, ["section", "name"]), "section"),
-  };
+  const favorites = useMemo(
+    () =>
+      Array.isArray(userSettings.favoriteTables)
+        ? userSettings.favoriteTables
+        : [],
+    [userSettings.favoriteTables]
+  );
+
+  const sections: Record<string, TableSettings[]> = useMemo(() => {
+    const resultsById = new Map(results.map((table) => [table.id, table]));
+    return {
+      Favorites: favorites
+        .map((id) => resultsById.get(id))
+        .filter((table): table is TableSettings => Boolean(table)),
+      ...groupBy(sortBy(results, ["section", "name"]), "section"),
+    };
+  }, [results, favorites]);
 
   if (!Array.isArray(tables))
     throw new Error(
