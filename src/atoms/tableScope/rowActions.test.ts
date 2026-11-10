@@ -14,6 +14,7 @@ import {
   _deleteRowDbAtom,
   addRowAtom,
   deleteRowAtom,
+  fillCellsAtom,
 } from "@src/atoms/tableScope";
 import { TableRow } from "@src/types/table";
 import { tableRowsAtom } from "./table";
@@ -606,3 +607,84 @@ describe("deleteRow", () => {
     expect(tableRows).toHaveLength(0);
   });
 });
+
+describe("fillCells", () => {
+  test("copies text, number, and array/object values across dragged row range", async () => {
+    const initialRows: TableRow[] = [
+      {
+        _rowy_ref: { id: "row0", path: TEST_COLLECTION + "/row0" },
+        title: "Template Text",
+        amount: 42,
+        tags: ["alpha", "beta"],
+      },
+      {
+        _rowy_ref: { id: "row1", path: TEST_COLLECTION + "/row1" },
+        title: "Old 1",
+        amount: 1,
+        tags: [],
+      },
+      {
+        _rowy_ref: { id: "row2", path: TEST_COLLECTION + "/row2" },
+        title: "Old 2",
+        amount: 2,
+        tags: [],
+      },
+      {
+        _rowy_ref: { id: "row3", path: TEST_COLLECTION + "/row3" },
+        title: "Unchanged",
+        amount: 3,
+        tags: ["keep"],
+      },
+    ];
+
+    initRows(initialRows);
+
+    const {
+      result: { current: fillCells },
+    } = renderHook(() => useSetAtom(fillCellsAtom, tableScope));
+
+    await act(() =>
+      fillCells({
+        fieldName: "title",
+        value: "Template Text",
+        sourceRowIndex: 0,
+        targetRowIndex: 2,
+      })
+    );
+
+    await act(() =>
+      fillCells({
+        fieldName: "amount",
+        value: 42,
+        sourceRowIndex: 0,
+        targetRowIndex: 2,
+      })
+    );
+
+    await act(() =>
+      fillCells({
+        fieldName: "tags",
+        value: ["alpha", "beta"],
+        sourceRowIndex: 0,
+        targetRowIndex: 2,
+      })
+    );
+
+    const {
+      result: { current: tableRows },
+    } = renderHook(() => useAtomValue(tableRowsAtom, tableScope));
+
+    expect(tableRows[1].title).toBe("Template Text");
+    expect(tableRows[2].title).toBe("Template Text");
+    expect(tableRows[3].title).toBe("Unchanged");
+
+    expect(tableRows[1].amount).toBe(42);
+    expect(tableRows[2].amount).toBe(42);
+    expect(tableRows[3].amount).toBe(3);
+
+    expect(tableRows[1].tags).toEqual(["alpha", "beta"]);
+    expect(tableRows[2].tags).toEqual(["alpha", "beta"]);
+    expect(tableRows[1].tags).not.toBe(tableRows[2].tags);
+  });
+});
+
