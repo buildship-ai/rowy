@@ -31,7 +31,7 @@ export default function TableGrid({
                 <SlideTransition
                   key={table.id}
                   appear
-                  timeout={(sectionIndex + 1) * 100 + tableIndex * 50}
+                  timeout={Math.min((sectionIndex + 1) * 100 + tableIndex * 15, 200)}
                 >
                   <Grid item xs={12} sm={6} md={4} lg={3}>
                     <TableCard

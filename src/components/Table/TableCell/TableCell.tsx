@@ -4,6 +4,8 @@ import { ErrorBoundary } from "react-error-boundary";
 import { flexRender } from "@tanstack/react-table";
 import type { Row, Cell } from "@tanstack/react-table";
 
+import Box from "@mui/material/Box";
+
 import ErrorIcon from "@mui/icons-material/ErrorOutline";
 import WarningIcon from "@mui/icons-material/WarningAmber";
 
@@ -16,6 +18,8 @@ import {
   tableScope,
   selectedCellAtom,
   contextMenuTargetAtom,
+  dragFillStateAtom,
+  fillCellsAtom,
 } from "@src/atoms/tableScope";
 import { TABLE_PADDING } from "@src/components/Table";
 import type { TableRow } from "@src/types/table";
@@ -85,6 +89,7 @@ export const TableCell = memo(function TableCell({
 }: ITableCellProps) {
   const setSelectedCell = useSetAtom(selectedCellAtom, tableScope);
   const setContextMenuTarget = useSetAtom(contextMenuTargetAtom, tableScope);
+  const setDragFillState = useSetAtom(dragFillStateAtom, tableScope);
 
   const value = cell.getValue();
   const required = cell.column.columnDef.meta?.config?.required;
@@ -206,6 +211,33 @@ export const TableCell = memo(function TableCell({
       <ErrorBoundary fallbackRender={InlineErrorFallback}>
         {flexRender(cell.column.columnDef.cell, tableCellComponentProps)}
       </ErrorBoundary>
+      {isSelectedCell && !isReadOnlyCell && canEditCells && (
+        <Box
+          data-testid="cell-autofill-handle"
+          sx={{
+            position: "absolute",
+            bottom: -3,
+            right: -3,
+            width: 7,
+            height: 7,
+            bgcolor: "primary.main",
+            border: "1px solid",
+            borderColor: "background.paper",
+            cursor: "crosshair",
+            zIndex: 2,
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            setDragFillState({
+              isDragging: true,
+              sourceRowIndex: row.index,
+              sourceColumnKey: cell.column.id,
+              sourceValue: cell.getValue(),
+              targetRowIndex: row.index,
+            });
+          }}
+        />
+      )}
     </StyledCell>
   );
 });
