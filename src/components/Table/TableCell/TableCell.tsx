@@ -55,6 +55,12 @@ export interface ITableCellProps {
    */
   left: number;
   isPinned: boolean;
+  /** True when this cell is inside the active drag-and-drop fill range */
+  isDragFillTarget?: boolean;
+  /** Handler when user initiates drag-and-drop fill from this cell's handle */
+  onDragFillStart?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  /** Handler when cursor enters this cell while drag-and-drop fill is active */
+  onDragFillEnter?: () => void;
 }
 
 /**
@@ -82,6 +88,9 @@ export const TableCell = memo(function TableCell({
   width,
   left,
   isPinned,
+  isDragFillTarget,
+  onDragFillStart,
+  onDragFillEnter,
 }: ITableCellProps) {
   const setSelectedCell = useSetAtom(selectedCellAtom, tableScope);
   const setContextMenuTarget = useSetAtom(contextMenuTargetAtom, tableScope);
@@ -132,6 +141,12 @@ export const TableCell = memo(function TableCell({
     rowHeight,
   };
 
+  const isEditableCell =
+    canEditCells &&
+    !isReadOnlyCell &&
+    cell.column.columnDef.meta?.editable !== false &&
+    cell.column.id !== "_rowy_column_actions";
+
   return (
     <StyledCell
       key={cell.id}
@@ -139,6 +154,7 @@ export const TableCell = memo(function TableCell({
       data-col-id={cell.column.id}
       data-frozen={cell.column.getIsPinned() || undefined}
       data-frozen-last={isLastFrozen || undefined}
+      data-drag-fill={isDragFillTarget || undefined}
       role="gridcell"
       tabIndex={isSelectedCell && !focusInsideCell ? 0 : -1}
       aria-colindex={index + 1}
@@ -165,6 +181,7 @@ export const TableCell = memo(function TableCell({
         borderRightWidth:
           cell.column.id === "_rowy_column_actions" ? 0 : undefined,
       }}
+      onMouseEnter={onDragFillEnter}
       onClick={(e) => {
         setSelectedCell({
           arrayIndex: row.original._rowy_ref.arrayTableData?.index,
@@ -206,6 +223,17 @@ export const TableCell = memo(function TableCell({
       <ErrorBoundary fallbackRender={InlineErrorFallback}>
         {flexRender(cell.column.columnDef.cell, tableCellComponentProps)}
       </ErrorBoundary>
+      {isSelectedCell && !focusInsideCell && isEditableCell && onDragFillStart && (
+        <div
+          className="cell-drag-handle"
+          data-testid="cell-drag-handle"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onDragFillStart(e);
+          }}
+        />
+      )}
     </StyledCell>
   );
 });

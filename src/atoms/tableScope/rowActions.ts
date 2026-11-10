@@ -502,3 +502,80 @@ export const updateFieldAtom = atom(
       auditChange("UPDATE_CELL", path, { updatedField: fieldName });
   }
 );
+
+export interface IFillCellsOptions {
+  /** The field name (column key) to fill */
+  fieldName: string;
+  /** The source value to copy into target cells */
+  value: any;
+  /** Target rows to fill (either row index range in tableRows or explicit row references) */
+  sourceRowIndex?: number;
+  targetRowIndex?: number;
+  targetRows?: Array<{
+    path: string;
+    arrayTableData?: ArrayTableRowData;
+  }>;
+  /** If true, deletes the field when source value is undefined */
+  deleteWhenUndefined?: boolean;
+}
+/**
+ * Copies a cell value across a range of target rows (spreadsheet drag-and-drop fill).
+ * Supports Text, Number, and other editable field types.
+ */
+export const fillCellsAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    {
+      fieldName,
+      value,
+      sourceRowIndex,
+      targetRowIndex,
+      targetRows,
+      deleteWhenUndefined = true,
+    }: IFillCellsOptions
+  ) => {
+    const tableColumnsOrdered = get(tableColumnsOrderedAtom);
+    const column = find(
+      tableColumnsOrdered,
+      (col) => col.fieldName === fieldName || col.key === fieldName
+    );
+    if (column && column.editable === false) return;
+
+    const tableRows = get(tableRowsAtom);
+    let resolvedTargets = targetRows;
+
+    if (
+      !resolvedTargets &&
+      sourceRowIndex !== undefined &&
+      targetRowIndex !== undefined &&
+      sourceRowIndex !== targetRowIndex
+    ) {
+      const start =
+        targetRowIndex > sourceRowIndex ? sourceRowIndex + 1 : targetRowIndex;
+      const end =
+        targetRowIndex > sourceRowIndex ? targetRowIndex : sourceRowIndex - 1;
+      resolvedTargets = tableRows
+        .slice(Math.max(0, start), Math.min(tableRows.length, end + 1))
+        .map((row) => ({
+          path: row._rowy_ref.path,
+          arrayTableData: row._rowy_ref.arrayTableData,
+        }));
+    }
+
+    if (!resolvedTargets || resolvedTargets.length === 0) return;
+
+    const shouldDelete = deleteWhenUndefined && value === undefined;
+
+    for (const target of resolvedTargets) {
+      await set(updateFieldAtom, {
+        path: target.path,
+        fieldName,
+        value: shouldDelete ? undefined : cloneDeep(value),
+        deleteField: shouldDelete,
+        arrayTableData: target.arrayTableData,
+      });
+    }
+  }
+);

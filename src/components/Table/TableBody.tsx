@@ -1,5 +1,5 @@
-import { memo } from "react";
-import { useAtom } from "jotai";
+import { memo, useEffect } from "react";
+import { useAtom, useSetAtom } from "jotai";
 import {
   Column,
   Row,
@@ -17,6 +17,8 @@ import {
   tableSchemaAtom,
   selectedCellAtom,
   tableNextPageAtom,
+  dragFillAtom,
+  fillCellsAtom,
 } from "@src/atoms/tableScope";
 
 import { getFieldProp } from "@src/components/fields";
@@ -65,6 +67,38 @@ export const TableBody = memo(function TableBody({
   const [tableSchema] = useAtom(tableSchemaAtom, tableScope);
   const [selectedCell] = useAtom(selectedCellAtom, tableScope);
   const [tableNextPage] = useAtom(tableNextPageAtom, tableScope);
+  const [dragFill, setDragFill] = useAtom(dragFillAtom, tableScope);
+  const fillCells = useSetAtom(fillCellsAtom, tableScope);
+
+  useEffect(() => {
+    if (!dragFill) return;
+
+    const handleMouseUp = () => {
+      const { columnKey, sourceRowIndex, targetRowIndex, sourceValue } =
+        dragFill;
+      setDragFill(null);
+      if (sourceRowIndex !== targetRowIndex) {
+        const start =
+          targetRowIndex > sourceRowIndex ? sourceRowIndex + 1 : targetRowIndex;
+        const end =
+          targetRowIndex > sourceRowIndex ? targetRowIndex : sourceRowIndex - 1;
+        const targetRows = rows
+          .slice(Math.max(0, start), Math.min(rows.length, end + 1))
+          .map((r) => ({
+            path: r.original._rowy_ref.path,
+            arrayTableData: r.original._rowy_ref.arrayTableData,
+          }));
+        fillCells({
+          fieldName: columnKey,
+          value: sourceValue,
+          targetRows,
+        });
+      }
+    };
+
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  }, [dragFill, setDragFill, fillCells, rows]);
 
   const {
     virtualRows,
@@ -128,6 +162,22 @@ export const TableBody = memo(function TableBody({
                 );
               }
 
+              const isDragFillTarget = Boolean(
+                dragFill &&
+                  dragFill.columnKey === cell.column.id &&
+                  row.index >=
+                    Math.min(
+                      dragFill.sourceRowIndex,
+                      dragFill.targetRowIndex
+                    ) &&
+                  row.index <=
+                    Math.max(
+                      dragFill.sourceRowIndex,
+                      dragFill.targetRowIndex
+                    ) &&
+                  row.index !== dragFill.sourceRowIndex
+              );
+
               return (
                 <TableCell
                   key={cell.id}
@@ -143,6 +193,23 @@ export const TableBody = memo(function TableBody({
                   rowHeight={rowHeight}
                   left={virtualCell.start}
                   isPinned={cell.column.getIsPinned() === "left"}
+                  isDragFillTarget={isDragFillTarget}
+                  onDragFillStart={() => {
+                    setDragFill({
+                      columnKey: cell.column.id,
+                      sourceRowIndex: row.index,
+                      targetRowIndex: row.index,
+                      sourcePath: row.original._rowy_ref.path,
+                      sourceValue: cell.getValue(),
+                    });
+                  }}
+                  onDragFillEnter={() => {
+                    if (dragFill && dragFill.columnKey === cell.column.id) {
+                      setDragFill((prev) =>
+                        prev ? { ...prev, targetRowIndex: row.index } : null
+                      );
+                    }
+                  }}
                 />
               );
             })}

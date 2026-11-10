@@ -48,6 +48,25 @@ export const StyledCell = styled("div")(({ theme }) => ({
     outline: `2px dotted ${theme.palette.error.main}`,
     outlineOffset: -2,
   },
+
+  "&[data-drag-fill='true']": {
+    backgroundColor: theme.palette.action.selected,
+    outline: `1px dashed ${theme.palette.primary.main}`,
+    outlineOffset: -1,
+  },
+
+  "& > .cell-drag-handle": {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 8,
+    height: 8,
+    backgroundColor: theme.palette.primary.main,
+    border: `1px solid ${theme.palette.background.paper}`,
+    cursor: "crosshair",
+    zIndex: 2,
+    userSelect: "none",
+  },
 }));
 StyledCell.displayName = "StyledCell";
 
