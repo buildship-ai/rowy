@@ -5,6 +5,10 @@ import { Box, Paper, Collapse, List } from "@mui/material";
 import SectionHeading from "@src/components/SectionHeading";
 import TableListItem from "./TableListItem";
 import SlideTransition from "@src/components/Modal/SlideTransition";
+import {
+  computeSectionAnimationTimeout,
+  EXIT_ANIMATION_TIMEOUT_MS,
+} from "../TableGrid/TableGrid";
 
 import { TableSettings } from "@src/types/table";
 
@@ -23,12 +27,13 @@ export default function TableList({
     <TransitionGroup>
       {Object.entries(sections).map(
         ([sectionName, sectionTables], sectionIndex) => {
+          const sectionTimeout = computeSectionAnimationTimeout(sectionIndex);
           const tableItems = sectionTables
             .map((table) => {
               if (!table) return null;
 
               return (
-                <Collapse key={table.id}>
+                <Collapse key={table.id} timeout={EXIT_ANIMATION_TIMEOUT_MS}>
                   <TableListItem
                     {...table}
                     link={getLink(table)}
@@ -42,19 +47,19 @@ export default function TableList({
           if (tableItems.length === 0) return null;
 
           return (
-            <Collapse key={sectionName}>
+            <Collapse key={sectionName} timeout={EXIT_ANIMATION_TIMEOUT_MS}>
               <Box component="section" sx={{ mt: 4 }}>
                 <SlideTransition
                   key={"list-section-" + sectionName}
                   in
-                  timeout={(sectionIndex + 1) * 100}
+                  timeout={sectionTimeout}
                 >
                   <SectionHeading sx={{ pl: 2, pr: 1 }}>
                     {sectionName}
                   </SectionHeading>
                 </SlideTransition>
 
-                <SlideTransition in timeout={(sectionIndex + 1) * 100}>
+                <SlideTransition in timeout={sectionTimeout}>
                   <Paper>
                     <List disablePadding>
                       <TransitionGroup>{tableItems}</TransitionGroup>
