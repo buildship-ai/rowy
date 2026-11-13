@@ -41,6 +41,7 @@ import { projectScope, userSettingsAtom } from "@src/atoms/projectScope";
 import { getFieldType, getFieldProp } from "@src/components/fields";
 import { useKeyboardNavigation } from "./useKeyboardNavigation";
 import { useMenuAction } from "./useMenuAction";
+import { useDragFill } from "./useDragFill";
 import { useSaveColumnSizing } from "./useSaveColumnSizing";
 import useHotKeys from "./useHotKey";
 import type { TableRow, ColumnConfig } from "@src/types/table";
@@ -283,6 +284,7 @@ export default function Table({
   });
   const [selectedCell] = useAtom(selectedCellAtom, tableScope);
   const { handleCopy, handlePaste, handleCut } = useMenuAction(selectedCell);
+  useDragFill({ canEditCells });
   const { handler: hotKeysHandler } = useHotKeys([
     ["mod+C", handleCopy],
     ["mod+X", handleCut],

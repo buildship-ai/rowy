@@ -8,6 +8,8 @@ import ErrorIcon from "@mui/icons-material/ErrorOutline";
 import WarningIcon from "@mui/icons-material/WarningAmber";
 
 import StyledCell from "@src/components/Table/Styled/StyledCell";
+import StyledFillHandle from "@src/components/Table/Styled/StyledFillHandle";
+import { FILL_HANDLE_ATTRIBUTE } from "@src/components/Table/useDragFill";
 import { InlineErrorFallback } from "@src/components/ErrorFallback";
 import RichTooltip from "@src/components/RichTooltip";
 import StyledDot from "@src/components/Table/Styled/StyledDot";
@@ -55,6 +57,8 @@ export interface ITableCellProps {
    */
   left: number;
   isPinned: boolean;
+  /** Cell is inside the current drag-fill range and should be highlighted */
+  isFillTarget?: boolean;
 }
 
 /**
@@ -82,6 +86,7 @@ export const TableCell = memo(function TableCell({
   width,
   left,
   isPinned,
+  isFillTarget,
 }: ITableCellProps) {
   const setSelectedCell = useSetAtom(selectedCellAtom, tableScope);
   const setContextMenuTarget = useSetAtom(contextMenuTargetAtom, tableScope);
@@ -153,6 +158,7 @@ export const TableCell = memo(function TableCell({
           : undefined
       }
       aria-invalid={isInvalid || isMissing}
+      data-fill-target={isFillTarget || undefined}
       style={{
         width,
         height: rowHeight,
@@ -206,6 +212,13 @@ export const TableCell = memo(function TableCell({
       <ErrorBoundary fallbackRender={InlineErrorFallback}>
         {flexRender(cell.column.columnDef.cell, tableCellComponentProps)}
       </ErrorBoundary>
+      {isSelectedCell &&
+        canEditCells &&
+        !focusInsideCell &&
+        !isReadOnlyCell &&
+        cell.column.columnDef.meta?.editable !== false && (
+          <StyledFillHandle {...{ [FILL_HANDLE_ATTRIBUTE]: "true" }} />
+        )}
     </StyledCell>
   );
 });

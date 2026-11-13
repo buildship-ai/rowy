@@ -139,6 +139,20 @@ export type SelectedCell = {
 /** Store selected cell in table. Used in side drawer and context menu */
 export const selectedCellAtom = atom<SelectedCell | null>(null);
 
+export type CellFillRange = {
+  /** Column being filled */
+  columnKey: string;
+  /** First row index (in `tableRows`) of the fill range, inclusive */
+  startIndex: number;
+  /** Last row index (in `tableRows`) of the fill range, inclusive */
+  endIndex: number;
+};
+/**
+ * Store the range of cells highlighted while drag-filling from the
+ * selected cell’s fill handle. Set to `null` when no drag is in progress.
+ */
+export const cellFillRangeAtom = atom<CellFillRange | null>(null);
+
 /** Store context menu target atom for positioning. If not null, menu open. */
 export const contextMenuTargetAtom = atom<HTMLElement | null>(null);
 

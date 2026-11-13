@@ -48,6 +48,10 @@ export const StyledCell = styled("div")(({ theme }) => ({
     outline: `2px dotted ${theme.palette.error.main}`,
     outlineOffset: -2,
   },
+
+  "&[data-fill-target='true']": {
+    boxShadow: `inset 0 0 0 2px ${theme.palette.primary.main}`,
+  },
 }));
 StyledCell.displayName = "StyledCell";
 

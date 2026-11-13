@@ -16,6 +16,7 @@ import {
   tableScope,
   tableSchemaAtom,
   selectedCellAtom,
+  cellFillRangeAtom,
   tableNextPageAtom,
 } from "@src/atoms/tableScope";
 
@@ -64,6 +65,7 @@ export const TableBody = memo(function TableBody({
 }: ITableBodyProps) {
   const [tableSchema] = useAtom(tableSchemaAtom, tableScope);
   const [selectedCell] = useAtom(selectedCellAtom, tableScope);
+  const [cellFillRange] = useAtom(cellFillRangeAtom, tableScope);
   const [tableNextPage] = useAtom(tableNextPageAtom, tableScope);
 
   const {
@@ -143,6 +145,12 @@ export const TableBody = memo(function TableBody({
                   rowHeight={rowHeight}
                   left={virtualCell.start}
                   isPinned={cell.column.getIsPinned() === "left"}
+                  isFillTarget={Boolean(
+                    cellFillRange &&
+                      cellFillRange.columnKey === cell.column.id &&
+                      row.index >= cellFillRange.startIndex &&
+                      row.index <= cellFillRange.endIndex
+                  )}
                 />
               );
             })}
